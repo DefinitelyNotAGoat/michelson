@@ -1,0 +1,44 @@
+ # camelcase_test.mtz
+
+ # Entries: 
+ # store_int: will store an integer
+ # call_store_int: will call store_int and store an integer
+ # update_counter: will take a timestamp, and if it's in the future will update a counter
+parameter (or(or (int %store_int) (int %call_store_int)) (timestamp %update_counter));
+storage (pair 
+            int # integer to be stored
+            nat # counter to be updated, nat because counter is 0+
+        ); 
+code { 
+        UNPAIR; # parameter : storage : []
+        IF_LEFT { # is it %store_int or %call_store_int?
+                    IF_LEFT { # have %store_int 
+                                SELF; # SELF: int : storage : []
+                                ADDRESS; # ADDRESS : int : storage : []
+                                SENDER; # SENDER : ADDRESS : int : storage : []
+                                ASSERT_CMPEQ; # authorize the manager of this contract
+                                SWAP; # storage : int : []
+                                CDR; # nat : int : []
+                                SWAP; # int : nat : []
+                                PAIR; # pair int nat : []
+                                NIL operation;
+                                PAIR;
+                            } 
+                            { # have %call_store_int       #:: 'p : mutez : contract 'p : 'S   ->   operation : 'S
+                                SELF %store_int; SWAP; # int : contract int @self : []
+                                PUSH mutez 0; SWAP; # int : mutez: contract int @self : []
+                                TRANSFER_TOKENS ; 
+                                NIL operation ; SWAP ; CONS ;
+                                PAIR;
+                            };
+                } 
+                {  # we have %update_counter
+                    NOW; # now : timestamp : storage : []
+                    ASSERT_CMPLT; # asserting that now is less than the time parameter
+                    UNPAIR; # int : nat : []
+                    DIP { PUSH nat 1; ADD;}; # working with the second element, int : (nat + 1) : []
+                    PAIR; # pair int nat : []
+                    NIL operation;
+                    PAIR;
+                }; 
+     };
